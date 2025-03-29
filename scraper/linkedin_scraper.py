@@ -2,6 +2,9 @@ import os
 import logging
 import time
 import json
+import asyncio
+import concurrent.futures
+import functools
 from typing import Dict, Any, Optional, List
 from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeoutError
 from dotenv import load_dotenv
@@ -700,6 +703,30 @@ class LinkedInScraper:
                 "success": False,
                 "error": f"Scraper initialization failed: {str(e)}"
             }
+    
+    @staticmethod
+    async def scrape_async(profile_url: str, credentials: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """
+        Async-compatible method to scrape a LinkedIn profile without blocking the event loop.
+        
+        Args:
+            profile_url: URL of the LinkedIn profile to scrape
+            credentials: Dictionary containing 'username' and 'password'
+            
+        Returns:
+            Dictionary with the extracted profile data
+        """
+        logger.info(f"Running LinkedIn scraper asynchronously for: {profile_url}")
+        
+        # Run the synchronous scraper in a thread pool
+        loop = asyncio.get_running_loop()
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            result = await loop.run_in_executor(
+                pool, 
+                functools.partial(LinkedInScraper.scrape, profile_url=profile_url, credentials=credentials)
+            )
+        
+        return result
             
 # Example usage
 if __name__ == "__main__":

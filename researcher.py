@@ -183,7 +183,7 @@ def generate_profile_insights(profile_data: Dict[str, Any]) -> str:
         llm = ChatOpenAI(temperature=0.2, model_name="gpt-3.5-turbo")
         
         # Generate insights
-        insights = llm.predict(insights_prompt.format(profile_summary=profile_summary))
+        insights = llm.invoke(insights_prompt.format(profile_summary=profile_summary))
         return insights.strip()
         
     except Exception as e:
@@ -241,7 +241,8 @@ async def research_person(name: str, github_username: Optional[str] = None, link
             'password': os.environ.get('LINKEDIN_PASSWORD')
         }
         if linkedin_credentials['username'] and linkedin_credentials['password']:
-            linkedin_data = LinkedInScraper.scrape(linkedin_url, linkedin_credentials)
+            # Use the async version instead of the sync version
+            linkedin_data = await LinkedInScraper.scrape_async(linkedin_url, linkedin_credentials)
     
     # Structure the collected data
     structured_data = structure_profile_data(linkedin_data, github_data)
