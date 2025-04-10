@@ -5,9 +5,11 @@ import json
 import asyncio
 import concurrent.futures
 import functools
+from pathlib import Path
 from typing import Dict, Any, Optional, List
 from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeoutError
 from dotenv import load_dotenv
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,19 +19,27 @@ class LinkedInScraper:
     A LinkedIn profile scraper using Playwright.
     """
     
-    def __init__(self, headless: bool = False, slow_mo: int = 100):
+    def __init__(self, headless: bool = True, slow_mo: int = 100, save_screenshots: bool = False):
         """
         Initialize the LinkedIn scraper.
         
         Args:
             headless: Whether to run the browser in headless mode.
             slow_mo: Slow down operations by this amount of milliseconds.
+            save_screenshots: Whether to save debug screenshots.
         """
         self.headless = headless
         self.slow_mo = slow_mo
         self.page = None
         self.browser = None
         self.context = None
+        self.save_screenshots = save_screenshots
+        
+        # Create images directory if it doesn't exist
+        self.images_dir = Path(__file__).parent / "images"
+        if self.save_screenshots and not self.images_dir.exists():
+            self.images_dir.mkdir(parents=True)
+            logger.info(f"Created images directory: {self.images_dir}")
         
     def __enter__(self):
         """
@@ -59,6 +69,25 @@ class LinkedInScraper:
             self.browser.close()
         if self.playwright:
             self.playwright.stop()
+            
+    def _save_screenshot(self, filename: str) -> None:
+        """
+        Save screenshot to images directory only if screenshots are enabled.
+        
+        Args:
+            filename: Name for the screenshot file
+        """
+        if not self.save_screenshots:
+            return
+            
+        try:
+            timestamp = int(time.time())
+            safe_filename = f"{filename}_{timestamp}.jpg"
+            file_path = self.images_dir / safe_filename
+            self.page.screenshot(path=str(file_path))
+            logger.debug(f"Saved screenshot to {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to save screenshot {filename}: {str(e)}")
     
     def login(self, username: str, password: str) -> bool:
         """
@@ -115,11 +144,8 @@ class LinkedInScraper:
             # Additional debugging
             logger.info(f"Current page URL after login attempt: {self.page.url}")
             
-            # Take a screenshot for debugging
-            timestamp = int(time.time())
-            screenshot_path = f"linkedin_login_debug_{timestamp}.png"
-            self.page.screenshot(path=screenshot_path)
-            logger.info(f"Saved debug screenshot to {screenshot_path}")
+            # Take a screenshot for debugging only if needed
+            self._save_screenshot("login_debug")
             
             # If we've reached here, determine success based on URL
             if "login" not in self.page.url:
@@ -196,13 +222,6 @@ class LinkedInScraper:
             
             for element in found_elements:
                 try:
-                    # Take a screenshot of each experience element for debugging
-                    self.page.evaluate("""
-                        (element) => {
-                            element.style.border = '2px solid red';
-                        }
-                    """, element)
-                    
                     # Extract using JavaScript for better flexibility with different UI versions
                     experience_data = self.page.evaluate("""
                         (element) => {
@@ -267,14 +286,7 @@ class LinkedInScraper:
                             'title': experience_data.get('title', 'Unknown Position'),
                             'date_range': experience_data.get('dateRange', '')
                         })
-                        
-                    # Remove the debug border
-                    self.page.evaluate("""
-                        (element) => {
-                            element.style.border = '';
-                        }
-                    """, element)
-                    
+                                            
                 except Exception as e:
                     logger.warning(f"Failed to extract experience details: {str(e)}")
             
@@ -324,8 +336,7 @@ class LinkedInScraper:
                 self.page.wait_for_timeout(5000)
             except Exception as e:
                 logger.error(f"Navigation error: {str(e)}")
-                # Take a screenshot to see what happened
-                self.page.screenshot(path=f"navigation_error_{int(time.time())}.png")
+                self._save_screenshot("navigation_error")
                 result["error"] = f"Failed to navigate to profile: {str(e)}"
                 return result
             
@@ -341,8 +352,8 @@ class LinkedInScraper:
                 result["error"] = "Profile is private or unavailable"
                 return result
             
-            # Take a screenshot to verify what we're seeing
-            self.page.screenshot(path=f"profile_page_{int(time.time())}.png")
+            # Save screenshot of profile page if needed
+            self._save_screenshot("profile_page")
             
             # Wait for any profile content to load
             logger.info("Looking for profile content...")
@@ -398,11 +409,6 @@ class LinkedInScraper:
                 except Exception as js_error:
                     logger.error(f"JavaScript name extraction failed: {str(js_error)}")
             
-            # Take a screenshot and save page HTML for debugging
-            self.page.screenshot(path=f"profile_debug_{int(time.time())}.png")
-            with open(f"profile_html_{int(time.time())}.html", "w", encoding="utf-8") as f:
-                f.write(self.page.content())
-                
             # Extract work experience with our improved method
             logger.info("Extracting work experience...")
             result["experiences"] = self._extract_experiences()
@@ -483,8 +489,8 @@ class LinkedInScraper:
                         logger.info("Clicked on show posts button")
                         self.page.wait_for_timeout(3000)  # Wait for posts to load
                     
-                    # Take screenshot of posts page
-                    self.page.screenshot(path=f"posts_page_{int(time.time())}.png")
+                    # Save screenshot of posts page if needed
+                    self._save_screenshot("posts_page") 
                     post_section_found = True
                 except Exception as click_error:
                     logger.error(f"Failed to click show posts button: {str(click_error)}")
@@ -519,16 +525,8 @@ class LinkedInScraper:
             # Process each post
             for i, element in enumerate(post_elements):
                 try:
-                    # Highlight post for debugging
-                    self.page.evaluate("""
-                        (element) => {
-                            element.style.border = '2px solid blue';
-                            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    """, element)
-                    
                     # Wait a moment for the post to be visible
-                    self.page.wait_for_timeout(500)
+                    self.page.wait_for_timeout(200)
                     
                     # Extract post data using JavaScript
                     post_data = self.page.evaluate("""
@@ -539,17 +537,6 @@ class LinkedInScraper:
                                     const el = element.querySelector(selector);
                                     if (el) {
                                         return el.textContent.trim();
-                                    }
-                                }
-                                return null;
-                            };
-                            
-                            // Helper function to find element from multiple selectors
-                            const findElement = (selectors) => {
-                                for (const selector of selectors) {
-                                    const el = element.querySelector(selector);
-                                    if (el) {
-                                        return el;
                                     }
                                 }
                                 return null;
@@ -644,13 +631,6 @@ class LinkedInScraper:
                         
                         logger.info(f"Extracted post {i+1}: {posts[-1]['content'][:50]}...")
                     
-                    # Remove highlight
-                    self.page.evaluate("""
-                        (element) => {
-                            element.style.border = '';
-                        }
-                    """, element)
-                    
                 except Exception as post_error:
                     logger.warning(f"Failed to extract post #{i+1}: {str(post_error)}")
                     
@@ -670,13 +650,14 @@ class LinkedInScraper:
             return posts
     
     @staticmethod
-    def scrape(profile_url: str, credentials: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    def scrape(profile_url: str, credentials: Optional[Dict[str, str]] = None, save_screenshots: bool = False) -> Dict[str, Any]:
         """
         Static method to scrape a LinkedIn profile without manually managing the context.
         
         Args:
             profile_url: URL of the LinkedIn profile to scrape
             credentials: Dictionary containing 'username' and 'password'
+            save_screenshots: Whether to save debug screenshots (default: False)
             
         Returns:
             Dictionary with the extracted profile data
@@ -695,7 +676,7 @@ class LinkedInScraper:
             }
             
         try:
-            with LinkedInScraper(headless=False, slow_mo=500) as scraper:
+            with LinkedInScraper(headless=True, slow_mo=500, save_screenshots=save_screenshots) as scraper:
                 return scraper.scrape_profile(profile_url, credentials)
         except Exception as e:
             logger.error(f"Failed to initialize scraper: {str(e)}")
@@ -705,13 +686,14 @@ class LinkedInScraper:
             }
     
     @staticmethod
-    async def scrape_async(profile_url: str, credentials: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    async def scrape_async(profile_url: str, credentials: Optional[Dict[str, str]] = None, save_screenshots: bool = False) -> Dict[str, Any]:
         """
         Async-compatible method to scrape a LinkedIn profile without blocking the event loop.
         
         Args:
             profile_url: URL of the LinkedIn profile to scrape
             credentials: Dictionary containing 'username' and 'password'
+            save_screenshots: Whether to save debug screenshots (default: False)
             
         Returns:
             Dictionary with the extracted profile data
@@ -723,7 +705,10 @@ class LinkedInScraper:
         with concurrent.futures.ThreadPoolExecutor() as pool:
             result = await loop.run_in_executor(
                 pool, 
-                functools.partial(LinkedInScraper.scrape, profile_url=profile_url, credentials=credentials)
+                functools.partial(LinkedInScraper.scrape, 
+                                 profile_url=profile_url, 
+                                 credentials=credentials,
+                                 save_screenshots=save_screenshots)
             )
         
         return result
@@ -743,6 +728,6 @@ if __name__ == "__main__":
     if not creds['username'] or not creds['password']:
         print("Please set LINKEDIN_USERNAME and LINKEDIN_PASSWORD environment variables")
     else:
-        print(f"Starting visible browser to scrape: {test_url}")
-        result = LinkedInScraper.scrape(test_url, creds)
+        print(f"Starting browser to scrape: {test_url}")
+        result = LinkedInScraper.scrape(test_url, creds, save_screenshots=False)  # Set to False to disable screenshots
         print(json.dumps(result, indent=2))
