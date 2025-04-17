@@ -1,7 +1,7 @@
 import warnings
 from datetime import date, datetime, timezone
 
-from .utils.enum import ReportSource, ReportType, Tone
+from utils.enum import ReportSource, ReportType, Tone
 from typing import List, Dict, Any
 
 
@@ -524,4 +524,58 @@ def get_prompt_by_report_type(report_type):
         )
         prompt_by_type = report_type_mapping.get(default_report_type)
     return prompt_by_type
+
+
+# --- Planning Agent Prompt ---
+PLANNING_PROMPT_TEMPLATE = """
+You are an expert research planner specializing in Open Source Intelligence (OSINT) for professional profiles.
+Your goal is to create a concise list of specific, actionable search queries or research tasks to gather information about a target person, tailored to a specific persona's needs.
+
+Target Person: {target_name}
+Research Persona: {persona_description}
+Prioritized Data Sources: {data_sources}
+Relevant Keywords: {query_keywords}
+
+Based on the persona and keywords, generate a list of 5-10 diverse search queries or research tasks. Focus on retrieving information relevant to the persona's goals from the prioritized data sources.
+Format your output as a list of queries/tasks, each on a new line. Do not include numbering or bullet points.
+
+Example queries for a 'Recruiter' persona might include:
+- Find {target_name}'s LinkedIn profile URL
+- Search GitHub for repositories contributed to by {target_name}
+- {target_name} key skills and certifications
+- {target_name} work experience at specific companies
+
+Example queries for an 'Investor' persona might include:
+- {target_name} involvement in startup funding rounds
+- Financial performance of companies associated with {target_name}
+- News articles mentioning {target_name} business activities
+- {target_name} patent filings or innovative projects
+
+Generate the plan now:
+"""
+
+# --- Reporting Prompt ---
+REPORTING_PROMPT_TEMPLATE = """
+You are a professional report writer. Synthesize the following research findings about {target_name} into a coherent report tailored for the {persona_name} persona.
+The report should include the following sections: {report_sections}.
+Use Markdown formatting. Cite sources using footnotes like [^1^], [^2^] where appropriate, corresponding to the numbered sources provided.
+
+Research Findings:
+{research_summary}
+
+Sources:
+{sources_list}
+
+Generate the {persona_name} report now:
+"""
+
+# --- Verification Prompt ---
+VERIFICATION_PROMPT_TEMPLATE = """
+You are a data verification expert. Review the following collected information about {target_name}. Identify any inconsistencies, contradictions, or areas needing further investigation based on the different sources.
+
+Collected Data Snippets:
+{data_snippets}
+
+List potential inconsistencies or verification points:
+"""
 
