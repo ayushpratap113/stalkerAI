@@ -4,31 +4,30 @@
 
 ## 🔍 Project Overview
 
-StalkerAI is an advanced open-source tool designed to aggregate and analyze public information about individuals across multiple platforms. The system creates comprehensive professional profiles by scraping data from LinkedIn, GitHub, and other public sources, then structures this information into detailed reports.
+StalkerAI is an advanced open-source tool designed to aggregate and analyze public information about individuals across multiple platforms. Using a **persona-driven, multi-agent system built with Langgraph**, it creates comprehensive professional profiles by scraping data from LinkedIn, GitHub, and other public sources, then structures this information into detailed reports tailored to specific user needs (e.g., Recruiter, Investor, Founder).
 
 ## 🎯 Goals
 
 - Create a unified system for ethical OSINT (Open Source Intelligence) gathering of publicly available professional information
-- Automate the collection, analysis, and reporting of professional profiles
-- Provide structured insights into a person's skills, work history, and projects
+- Automate the collection, analysis, and reporting of professional profiles **based on different user personas**.
+- Provide structured insights into a person's skills, work history, and projects **relevant to the chosen persona**.
 - Demonstrate responsible use of AI and web scraping technologies within legal and ethical boundaries
 
 ## 📊 Current Status
 
 StalkerAI currently offers the following functionality:
 
-- **Profile Scraping**: Automated collection of public profile data from:
+- **Persona-Driven Research Planning**: Generates targeted research plans based on selected personas (General, Recruiter, Investor, Founder).
+- **Multi-Source Data Collection**: Automated collection of public profile data from:
   - LinkedIn profiles (work history, headline, posts)
   - GitHub profiles (repositories, skills, languages)
-- **Data Processing**: Standardization and structuring of collected data
-- **Report Generation**: Creation of comprehensive Markdown reports with:
-  - Professional summary
-  - Work experience history
-  - Project portfolio with detailed metadata
-  - Technical skill analysis
-- **Basic Web Search**: Integration with search APIs for additional context
+  - Web Search via Tavily
+  - Academic Papers via ArXiv
+- **Structured Data Processing**: Standardization and structuring of collected data.
+- **Persona-Tailored Report Generation**: Creation of comprehensive Markdown reports with sections relevant to the chosen persona.
+- **Asynchronous Execution**: Utilizes Langgraph and asyncio for efficient, concurrent data gathering and processing.
 
-## 🔭 Future Development Plans
+<!-- ## 🔭 Future Development Plans
 
 - **Enhanced Data Sources**:
   - Add support for Twitter/X, research publications, personal websites
@@ -44,7 +43,7 @@ StalkerAI currently offers the following functionality:
 - **Ethical Guardrails**:
   - Privacy-preserving mechanisms and data retention policies
   - Configurable depth of information gathering
-  - Compliance with regional privacy regulations
+  - Compliance with regional privacy regulations -->
 
 ## 💻 Tech Stack
 
@@ -58,8 +57,9 @@ StalkerAI currently offers the following functionality:
 ### Processing & Analysis
 
 - **Data Structuring**: Custom Python utilities
-- **LLM Integration**: OpenAI API (GPT-3.5/4o models) for text processing and insights
-- **Cost Optimization**: Token usage tracking and model selection based on task complexity
+- **LLM Integration**: OpenAI API (GPT-4o models) for planning, reporting, and analysis.
+- **Workflow Orchestration**: Langchain & Langgraph for defining and running the multi-agent research process.
+- **Cost Optimization**: Token usage tracking and model selection based on task complexity.
 
 ### Report Generation
 
@@ -68,51 +68,73 @@ StalkerAI currently offers the following functionality:
 
 ### Architecture
 
-- **Modular Design**: Independent components for scraping, analysis, and reporting
-- **Asynchronous Processing**: Python asyncio for parallel data collection
+- **Modular Design**: Independent components for planning, scraping, analysis, and reporting.
+- **Agent-Based System**: Uses distinct agents (Planning, Execution, Reporting) orchestrated by Langgraph.
+- **Asynchronous Processing**: Python asyncio for parallel data collection and agent execution.
 - **Error Handling**: Comprehensive logging and fallback mechanisms
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.10+
 - API keys for:
   - OpenAI
   - Tavily Search
   - GitHub (optional, for higher rate limits)
+  - NewsAPI (optional, for Investor/Founder personas)
 - LinkedIn credentials (for profile scraping)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/stalkerAI.git
+# 1. Clone the repository
+git clone <repository_url>
 cd stalkerAI
 
-# Install dependencies
+# 2. Create and activate a virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your API keys
+# 4. Set up environment variables
+cp .env
+# Edit .env and add your API keys and LinkedIn credentials
 ```
 
 ### Usage
 
+#### Python Script
+
 ```python
-# Example: Generate report for a person
-from researcher import generate_person_report
+# Example: Generate report for a person using a specific persona
+import asyncio
+from researcher import run_research # Updated function name
 
-# Generate a report with known usernames
-report = generate_person_report(
-    name="John Doe",
-    github_username="johndoe",
-    linkedin_url="https://linkedin.com/in/johndoe"
-)
+async def main():
+    report_data = await run_research(
+        target_name="Andrew Ng",
+        persona_name="Recruiter" # Specify the desired persona
+    )
+    if report_data.get("report"):
+        print(report_data["report"])
+    else:
+        print(f"Error: {report_data.get('error')}")
 
-# Or let StalkerAI find information automatically
-report = generate_person_report(name="John Doe")
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+#### CLI Usage
+
+```bash
+# Run StalkerAI from the command line, specifying the persona
+python main.py "Person Name" --persona [General|Recruiter|Investor|Founder]
+
+# Example:
+python main.py "Elon Musk" --persona Investor
 ```
 
 ## ⚠️ Ethical Considerations
@@ -124,11 +146,5 @@ StalkerAI is designed for legitimate professional research and is intended to be
 - Use the tool for professional purposes (recruitment, professional networking)
 - Do not use for harassment, stalking, or privacy violation
 
-## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
