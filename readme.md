@@ -89,7 +89,7 @@ StalkerAI currently offers the following functionality:
 
 ```bash
 # 1. Clone the repository
-git clone <repository_url>
+git clone https://github.com/ayushpratap113/stalkerAI
 cd stalkerAI
 
 # 2. Create and activate a virtual environment (recommended)
